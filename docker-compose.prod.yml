@@ -1,0 +1,8 @@
+services:
+  app:
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: 0
+  adminer:
+    # prod: Do not expose adminer for security reasons
+    ports: []
