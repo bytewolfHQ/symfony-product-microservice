@@ -1,0 +1,60 @@
+services:
+  app:
+    build:
+      context: ./docker/php         # passt zu deinem Layout
+      dockerfile: Dockerfile        # falls du einen eigenen Dockerfile-Pfad nutzt
+    image: symfony-microservice
+    working_dir: /var/www/app
+    volumes:
+      - ${PATH_TO_SYMFONY_PROJECT:-.}:/var/www/app:delegated
+      - ./docker/php/php.ini:/usr/local/etc/php/php.ini:ro
+    environment:
+      APP_ENV: dev                  # in stage/prod per Override überschreiben
+      XDEBUG_MODE: ${XDEBUG_MODE:-off}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - db
+    # PHP-FPM braucht KEIN host-port mapping
+    expose:
+      - "9000"                      # nur intern für Nginx sichtbar
+    networks: [symfony-ms-network]
+
+  web:
+    image: nginx:stable
+    depends_on: [app]
+    volumes:
+      - ${PATH_TO_SYMFONY_PROJECT:-.}:/var/www/app:ro
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    # Host-Ports über .env konfigurierbar:
+    ports:
+      - "${WEB_HTTP_PORT:-8080}:80"
+    networks: [symfony-ms-network]
+
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_USER: ${DB_USER:-symfony}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-symfony}
+      MARIADB_DATABASE: ${DB_NAME:-symfony_microservice}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    volumes:
+      - symfony-ms-data:/var/lib/mysql
+    # In dev kannst du die DB exposen. In stage/prod i.d.R. NICHT!
+    # Wenn du es brauchst, setz DB_HOST_PORT in .env (z. B. 3307)
+    # ACHTUNG: Compose erlaubt kein "leeres" Mapping → nutze Override-Datei (siehe unten)
+    networks: [symfony-ms-network]
+
+  adminer:
+    image: adminer:latest
+    depends_on: [db]
+    ports:
+      - "${ADMINER_HTTP_PORT:-8081}:8080"
+    networks: [symfony-ms-network]
+
+volumes:
+  symfony-ms-data:
+
+networks:
+  symfony-ms-network:
+    driver: bridge
