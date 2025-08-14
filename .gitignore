@@ -1,0 +1,19 @@
+/vendor/
+/var/
+/node_modules/
+
+# Env/symfony
+.env
+.env.local
+.env.*.local
+.phpunit.result.cache
+
+# JWT keys (never commit)
+config/jwt/*.pem
+
+# IDE
+/.idea/
+/.vscode/
+
+# Composer
+composer.lock
