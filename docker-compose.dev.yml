@@ -1,0 +1,10 @@
+services:
+  app:
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: 1
+      XDEBUG_MODE: debug,develop
+
+  db:
+    ports:
+      - "${DB_HOST_PORT:-3306}:3306"
