@@ -4,6 +4,8 @@
 # -------- Settings --------
 ENV ?= dev
 
+COMPOSE_ENV_FILE ?= .env.docker
+
 COMPOSE_BASE := docker-compose.yml
 COMPOSE_DEV  := docker-compose.dev.yml
 COMPOSE_STAGE:= docker-compose.stage.yml
@@ -26,7 +28,7 @@ ifeq ($(ENV),prod)
   ENABLE_XDEBUG := 0
 endif
 
-DC := docker compose $(COMPOSE_FILES)
+DC := docker compose --env-file $(COMPOSE_ENV_FILE) $(COMPOSE_FILES)
 
 help:
 >@echo "Targets (ENV=$(ENV)):"
@@ -48,6 +50,9 @@ help:
 >@echo "  make bootstrap                     # build + up + composer + jwt + migrate"
 >@echo "  make status                        # compose ps"
 >@echo "  make url                           # zeigt URLs"
+>@echo "  make exec							 # Komfort-Exec im Container"
+>@echo "  make sf							 # Symfony Console"
+>@echo "  make phpunit						 # PHPUnit"
 
 env-init:
 >@if [ ! -f .env.local.$(ENV) ]; then \
@@ -62,20 +67,21 @@ env-init:
 >  echo '.env.local.$(ENV) existiert bereits.'; \
 >fi
 >@if [ ! -f .env.local ]; then cp .env.local.$(ENV) .env.local; fi
->@if [ ! -f .env ]; then \
->  echo "COMPOSE_PROJECT_NAME=symfony-product-microservice-$(ENV)"  >  .env; \
->  echo "WEB_HTTP_PORT=8080"                                       >> .env; \
->  echo "ADMINER_HTTP_PORT=8081"                                   >> .env; \
->  echo "DB_HOST_PORT="                                            >> .env; \
->  echo "PATH_TO_SYMFONY_PROJECT=."                                >> .env; \
->  echo "XDEBUG_MODE=$(if $(filter $(ENV),dev),debug,off)"         >> .env; \
->  echo "DB_USER=symfony"                                          >> .env; \
->  echo "DB_PASSWORD=symfony"                                      >> .env; \
->  echo "DB_NAME=symfony-microservice"                             >> .env; \
->  echo "DB_ROOT_PASSWORD=root"                                    >> .env; \
->  echo "Erstellt .env (Compose). Passe Ports/Namen bei Bedarf an."; \
+>@if [ ! -f .env.docker ]; then \
+>  echo "COMPOSE_PROJECT_NAME=symfony-product-microservice-$(ENV)"  >  .env.docker; \
+>  echo "WEB_HTTP_PORT=8080"                                       >> .env.docker; \
+>  echo "ADMINER_HTTP_PORT=8081"                                   >> .env.docker; \
+>  echo "DB_HOST_PORT="                                            >> .env.docker; \
+>  echo "PATH_TO_SYMFONY_PROJECT=."                                >> .env.docker; \
+>  echo "XDEBUG_MODE=$(if $(filter $(ENV),dev),debug,off)"         >> .env.docker; \
+>  echo "DB_USER="                                                 >> .env.docker; \
+>  echo "DB_PASSWORD="                                             >> .env.docker; \
+>  echo "DB_NAME="                                                 >> .env.docker; \
+>  echo "DB_ROOT_PASSWORD="                                        >> .env.docker; \
+>  echo "HOST_UID=$$(id -u)"                                       >> .env.docker; \
+>  echo "Erstellt .env.docker (Compose). Passe Ports/Namen/DB bei Bedarf an."; \
 > else \
->  echo ".env (Compose) existiert bereits."; \
+>  echo ".env.docker (Compose) existiert bereits."; \
 >fi
 
 build:
@@ -138,3 +144,13 @@ url:
 >@echo "API Doc:   http://localhost:8080/api/doc"
 >@echo "API JSON:  http://localhost:8080/api/doc.json"
 >@echo "Adminer:   http://localhost:8081"
+
+exec:
+>$(DC) exec app sh -lc '$(CMD)'
+
+sf:
+>$(DC) exec app php bin/console $(ARGS)
+
+phpunit:
+>$(DC) exec app bash -lc 'APP_ENV=test APP_DEBUG=1 php bin/console cache:clear --no-warmup'
+>$(DC) exec app bash -lc 'APP_ENV=test APP_DEBUG=1 XDEBUG_MODE=off php bin/phpunit $(ARGS) --display-deprecations'
