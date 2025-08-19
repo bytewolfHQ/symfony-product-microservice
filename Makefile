@@ -32,16 +32,16 @@ DC := docker compose --env-file $(COMPOSE_ENV_FILE) $(COMPOSE_FILES)
 
 help:
 >@echo "Targets (ENV=$(ENV)):"
->@echo "  make env-init ENV=dev|stage|prod   # .env.local.<env> erzeugen (wenn fehlt)"
->@echo "  make build                         # Images bauen (ENABLE_XDEBUG=$(ENABLE_XDEBUG))"
->@echo "  make up                            # Container starten"
->@echo "  make down                          # Container stoppen"
->@echo "  make restart                       # Container neustarten"
->@echo "  make sh                            # Shell im app-Container"
->@echo "  make logs                          # Logs folgen"
->@echo "  make composer-install              # composer install im Container"
->@echo "  make jwt                           # JWT-Keys generieren"
->@echo "  make migrate                       # Doctrine-Migrationen ausführen"
+>@echo "  make env-init ENV=dev|stage|prod   # Create .env.local.<env> (if not present)"
+>@echo "  make build                         # Build images (ENABLE_XDEBUG=$(ENABLE_XDEBUG))"
+>@echo "  make up                            # Start containers"
+>@echo "  make down                          # Stop container"
+>@echo "  make restart                       # Restart container"
+>@echo "  make sh                            # Shell in app-container"
+>@echo "  make logs                          # Follow logs"
+>@echo "  make composer-install              # composer install in Container"
+>@echo "  make jwt                           # Generate JWT-Keys"
+>@echo "  make migrate                       # Execute Doctrine-Migration"
 >@echo "  make schema-update                 # (Notfall) Schema direkt updaten"
 >@echo "  make admin-hash                    # Passwort-Hash erzeugen"
 >@echo "  make seed-admin EMAIL=.. PASS=..   # Admin-User in DB anlegen/ersetzen"
@@ -53,6 +53,8 @@ help:
 >@echo "  make exec							 # Komfort-Exec im Container"
 >@echo "  make sf							 # Symfony Console"
 >@echo "  make phpunit						 # PHPUnit"
+>@echo "  make seed [PURGE=1] [GROUP=demo]   # load Fixtures laden (optional: Tabellen leeren & Gruppe)"
+>@echo "  make seed-reset [GROUP=demo]       # DB droppen, neu anlegen, migrieren, dann seed mit PURGE"
 
 env-init:
 >@if [ ! -f .env.local.$(ENV) ]; then \
@@ -154,3 +156,14 @@ sf:
 phpunit:
 >$(DC) exec app bash -lc 'APP_ENV=test APP_DEBUG=1 php bin/console cache:clear --no-warmup'
 >$(DC) exec app bash -lc 'APP_ENV=test APP_DEBUG=1 XDEBUG_MODE=off php bin/phpunit $(ARGS) --display-deprecations'
+
+seed:
+>$(DC) exec app php -d xdebug.mode=off bin/console doctrine:fixtures:load -n \
+>$(if $(PURGE),--purge-with-truncate,) \
+>$(if $(GROUP),--group=$(GROUP),)
+
+seed-reset:
+>$(DC) exec app php -d xdebug.mode=off bin/console doctrine:database:drop --force --if-exists
+>$(DC) exec app php -d xdebug.mode=off bin/console doctrine:database:create --if-not-exists
+>$(DC) exec app php -d xdebug.mode=off bin/console doctrine:migrations:migrate -n
+>$(MAKE) seed PURGE=1 $(if $(GROUP),GROUP=$(GROUP),)
