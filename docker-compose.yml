@@ -3,7 +3,7 @@ services:
     build:
       context: ./docker/php         # passt zu deinem Layout
       dockerfile: Dockerfile        # falls du einen eigenen Dockerfile-Pfad nutzt
-    image: symfony-microservice
+    image: symfony-product-microservice
     working_dir: /var/www/app
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     volumes:
