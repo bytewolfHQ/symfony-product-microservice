@@ -154,7 +154,9 @@ sf:
 >$(DC) exec app php bin/console $(ARGS)
 
 phpunit:
->$(DC) exec app bash -lc 'APP_ENV=test APP_DEBUG=1 php bin/console cache:clear --no-warmup'
+>$(DC) exec app bash -lc 'APP_ENV=test APP_DEBUG=1 php bin/console cache:clear --no-warmup || true'
+>$(DC) exec app bash -lc 'rm -f var/test.db || true'
+>$(DC) exec app bash -lc 'APP_ENV=test php bin/console doctrine:schema:create -n'
 >$(DC) exec app bash -lc 'APP_ENV=test APP_DEBUG=1 XDEBUG_MODE=off php bin/phpunit $(ARGS) --display-deprecations'
 
 seed:

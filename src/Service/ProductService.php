@@ -19,7 +19,7 @@ class ProductService
     /** @return Product[] */
     public function getAll(bool $onlyActive = true): array
     {
-        return $this->productRepository->getPaginated($onlyActive, 1, 500);
+        return $this->productRepository->getPaginated($onlyActive, 1, self::DEFAULT_LIMIT);
     }
 
     public function getPaginated(bool $onlyActive, int $page, int $limit = self::DEFAULT_LIMIT): array

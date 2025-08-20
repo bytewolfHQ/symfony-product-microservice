@@ -21,9 +21,9 @@ final class ProductController extends AbstractController
     #[Route('', name: 'product_list', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
-        $onlyActive = true;
+        $onlyActive   = true;
         $defaultLimit = ProductService::DEFAULT_LIMIT;
-        $limitUsed = null;
+        $limitUsed    = null;
 
         $filters = [];
         if (null !== $request->query->get('category')) {
@@ -40,18 +40,20 @@ final class ProductController extends AbstractController
         }
 
         $sort = ['field' => 'createdAt','direction' => 'DESC'];
-        if ($request->query->get('sort')) [$sort['field'],$sort['direction']] = explode(',',$request->query->get('sort'));
+        if ($request->query->get('sort')) {
+            [$sort['field'], $sort['direction']] = explode(',', $request->query->get('sort'));
+        }
 
         $hasFilters = !empty($filters);
-        $hasPagination = $request->get('page') && $request->query->get('limit');
+        $hasPagination = $request->query->get('page') && $request->query->get('limit');
         $getAllProducts = $request->query->get('all');
 
         if ($hasFilters) {
-            $items = $filters ? $this->productService->getByCriteria($filters, $sort) : $this->productService->getAll(true);
             $products = $this->productService->getByCriteria(
                 $filters,
                 $sort,
             );
+            $limitUsed = count($products);
         } elseif ($hasPagination) {
             $page = max(1, (int) $request->query->get('page', 1));
             $limit = max(1, (int) $request->query->get('limit', $defaultLimit));
@@ -63,28 +65,28 @@ final class ProductController extends AbstractController
             $limitUsed = $defaultLimit;
         } else {
             $products = $this->productService->getAll();
+            $limitUsed = $defaultLimit;
         }
 
         if (empty($products)) {
             return new JsonResponse([], 204); // No Content
         }
 
-        $data = array_map([$this, 'map'], $products);
+        $data       = array_map([$this, 'map'], $products);
         $totalCount = $this->productService->countAll($onlyActive, $filters ?? []);
-        $page = $request->query->get('page', 1);
+        $page       = (int) $request->query->get('page', 1);
 
-        $response = new JsonResponse([
+        return new JsonResponse([
             'data' => $data,
             'meta' => [
                 'total' => $totalCount,
                 'page' => $page,
-                'limit' => $limitUsed,
+                'limit' => (int) ($limitUsed ?? $defaultLimit),
             ],
+        ], 200, [
+            'Content-Type'  => 'application/json',
+            'X-Total-Count' => (string) $totalCount,
         ]);
-        $response->headers->set('Content-Type', 'application/json');
-        $response->headers->set('X-Total-Count', (int) $totalCount);
-
-        return $response;
     }
 
     #[Route('/{id}', name: 'product_detail', methods: ['GET'])]
