@@ -63,5 +63,5 @@ jobs:
                   # DATABASE_URL: 'sqlite:///%kernel.project_dir%/var/test.db'
               #run: APP_ENV=test XDEBUG_MODE=off php bin/phpunit --display-deprecations
 
-            - name: Build test schema
-              run: php bin/console doctrine:schema:create --env=test
+            #- name: Build test schema
+            #  run: php bin/console doctrine:schema:create --env=test
