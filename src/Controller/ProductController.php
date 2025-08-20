@@ -21,31 +21,69 @@ final class ProductController extends AbstractController
     #[Route('', name: 'product_list', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
-        $filters = array_filter([
-            'category' => $request->get('category'),
-            'minPrice' => $request->get('minPrice'),
-            'maxPrice' => $request->get('maxPrice'),
-            'isActive' => $request->get('isActive') ? filter_var($request->get('isActive'), FILTER_VALIDATE_BOOLEAN) : null,
-        ], fn($v)=>$v!==null && $v!=='');
-        $sort = ['field'=>'createdAt','direction'=>'DESC'];
-        if ($request->query->has('sort')) [$sort['field'],$sort['direction']] = explode(',',$request->query->get('sort'));
+        $onlyActive = true;
+        $defaultLimit = ProductService::DEFAULT_LIMIT;
+        $limitUsed = null;
 
-        if ($request->get('page') && $request->query->get('limit')) {
-            $page = max(1, (int) $request->query->get('page'));
-            $limit = max(1, (int) $request->query->get('limit'));
-            $data = $this->productService->getPaginated(true, $page, $limit);
-            $total = $this->productService->countAll(true, $filters);
-            return $this->json([
-                'data' => array_map([$this, 'map'], $data),
-                'meta' => ['total' => $total, 'page' => $page, 'limit' => $limit],
-            ]);
+        $filters = [];
+        if (null !== $request->query->get('category')) {
+            $filters['category'] = $request->query->get('category');
+        }
+        if (null !== $request->query->get('minPrice')) {
+            $filters['minPrice'] = (float) $request->query->get('minPrice');
+        }
+        if (null !== $request->query->get('maxPrice')) {
+            $filters['maxPrice'] = (float) $request->query->get('maxPrice');
+        }
+        if (null !== $request->query->get('isActive')) {
+            $filters['isActive'] = filter_var($request->query->get('isActive'), FILTER_VALIDATE_BOOLEAN);
         }
 
-        $items = $filters ? $this->productService->getByCriteria($filters, $sort) : $this->productService->getAll(true);
-        if (!$items) return new JsonResponse([], 204);
+        $sort = ['field' => 'createdAt','direction' => 'DESC'];
+        if ($request->query->get('sort')) [$sort['field'],$sort['direction']] = explode(',',$request->query->get('sort'));
 
-        $response = $this->json(array_map([$this, 'map'], $items));
-        $response->headers->set('X-Total-Count', (string)$this->productService->countAll(true, $filters));
+        $hasFilters = !empty($filters);
+        $hasPagination = $request->get('page') && $request->query->get('limit');
+        $getAllProducts = $request->query->get('all');
+
+        if ($hasFilters) {
+            $items = $filters ? $this->productService->getByCriteria($filters, $sort) : $this->productService->getAll(true);
+            $products = $this->productService->getByCriteria(
+                $filters,
+                $sort,
+            );
+        } elseif ($hasPagination) {
+            $page = max(1, (int) $request->query->get('page', 1));
+            $limit = max(1, (int) $request->query->get('limit', $defaultLimit));
+            $products = $this->productService->getPaginated(true, $page, $limit);
+            $limitUsed = $limit;
+        } elseif ($getAllProducts) {
+            $onlyActive = false;
+            $products = $this->productService->getAll(false);
+            $limitUsed = $defaultLimit;
+        } else {
+            $products = $this->productService->getAll();
+        }
+
+        if (empty($products)) {
+            return new JsonResponse([], 204); // No Content
+        }
+
+        $data = array_map([$this, 'map'], $products);
+        $totalCount = $this->productService->countAll($onlyActive, $filters ?? []);
+        $page = $request->query->get('page', 1);
+
+        $response = new JsonResponse([
+            'data' => $data,
+            'meta' => [
+                'total' => $totalCount,
+                'page' => $page,
+                'limit' => $limitUsed,
+            ],
+        ]);
+        $response->headers->set('Content-Type', 'application/json');
+        $response->headers->set('X-Total-Count', (int) $totalCount);
+
         return $response;
     }
 

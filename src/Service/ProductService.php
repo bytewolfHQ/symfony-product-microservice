@@ -9,6 +9,8 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class ProductService
 {
+    public const DEFAULT_LIMIT = 500;
+
     public function __construct(
         private ProductRepository $productRepository,
         private EntityManagerInterface $em
@@ -20,7 +22,7 @@ class ProductService
         return $this->productRepository->getPaginated($onlyActive, 1, 500);
     }
 
-    public function getPaginated(bool $onlyActive = true, int $page, int $limit): array
+    public function getPaginated(bool $onlyActive, int $page, int $limit = self::DEFAULT_LIMIT): array
     {
         return $this->productRepository->getPaginated($onlyActive, $page, $limit);
     }
