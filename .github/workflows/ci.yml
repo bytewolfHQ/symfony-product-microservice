@@ -33,6 +33,14 @@ jobs:
                   key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
                   restore-keys: ${{ runner.os }}-composer-
 
+            - name: Create .env for CI
+              run: |
+                cat > .env <<'EOF'
+                APP_ENV=test
+                APP_SECRET=dev-secret
+                DATABASE_URL=sqlite:///%kernel.project_dir%/var/test.db
+                EOF
+
             - name: Install dependencies
               run: composer install --no-interaction --prefer-dist --no-progress
 
