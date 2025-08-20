@@ -48,3 +48,6 @@ jobs:
                   # Falls du .env.test NICHT committen willst, könntest du hier alternativ direkt setzen:
                   # DATABASE_URL: 'sqlite:///%kernel.project_dir%/var/test.db'
               run: php bin/phpunit --display-deprecations
+
+            - name: Build test schema
+              run: php bin/console doctrine:schema:create --env=test

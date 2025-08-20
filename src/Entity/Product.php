@@ -36,15 +36,16 @@ class Product
     private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\PrePersist]
-    public function onPrePersist(): void
+    public function onCreate(): void
     {
         $now = new \DateTimeImmutable();
         $this->createdAt = $now;
         $this->updatedAt = $now;
+        $this->isActive ??= true;
     }
 
     #[ORM\PreUpdate]
-    public function onPreUpdate(): void
+    public function onUpdate(): void
     {
         $this->updatedAt = new \DateTimeImmutable();
     }

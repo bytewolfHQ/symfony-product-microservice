@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\Product;
 use App\Repository\ProductRepository;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 
 class ProductService
@@ -16,8 +17,22 @@ class ProductService
     /** @return Product[] */
     public function getAll(bool $onlyActive = true): array
     {
-        $criteria = $onlyActive ? ['isActive' => true] : [];
-        return $this->productRepository->findBy($criteria, ['createdAt' => 'DESC']);
+        return $this->productRepository->getPaginated($onlyActive, 1, 500);
+    }
+
+    public function getPaginated(bool $onlyActive = true, int $page, int $limit): array
+    {
+        return $this->productRepository->getPaginated($onlyActive, $page, $limit);
+    }
+
+    public function getByCriteria(array $filters, array $sorting = []): array
+    {
+        return $this->productRepository->findByCriteria($filters, $sorting);
+    }
+
+    public function countAll(bool $onlyActive = true, array $filters = []): int
+    {
+        return $this->productRepository->countAll($onlyActive, $filters);
     }
 
     public function getById(int $id): ?Product
@@ -32,8 +47,8 @@ class ProductService
             ->setDescription($description)
             ->setPrice($price)
             ->setCategory($category)
-            ->setCreatedAt(new \DateTimeImmutable())
-            ->setUpdatedAt(new \DateTimeImmutable())
+            ->setCreatedAt(new DateTimeImmutable())
+            ->setUpdatedAt(new DateTimeImmutable())
             ->setIsActive($isActive);
 
         $this->em->persist($product);

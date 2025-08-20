@@ -167,3 +167,22 @@ seed-reset:
 >$(DC) exec app php -d xdebug.mode=off bin/console doctrine:database:create --if-not-exists
 >$(DC) exec app php -d xdebug.mode=off bin/console doctrine:migrations:migrate -n
 >$(MAKE) seed PURGE=1 $(if $(GROUP),GROUP=$(GROUP),)
+
+# Schnellcheck: zeigt DB-URL & Migrations-Status
+doctor:
+>$(DC) exec app php -r 'echo "APP_ENV=", getenv("APP_ENV"), PHP_EOL, "DATABASE_URL=", getenv("DATABASE_URL"), PHP_EOL;'
+>$(DC) exec app php bin/console doctrine:migrations:status -vvv || true
+
+# Frisches Dev: alles neu aufsetzen (Daten gehen verloren!)
+reset-dev: down
+>$(MAKE) build ENV=$(ENV)
+>$(MAKE) up ENV=$(ENV)
+>$(MAKE) composer-install ENV=$(ENV)
+>$(MAKE) migrate ENV=$(ENV)
+>$(MAKE) seed ENV=$(ENV)
+
+# Nur DB frisch (drop/create + migrate)
+db-fresh:
+>$(DC) exec app php bin/console doctrine:database:drop --force || true
+>$(DC) exec app php bin/console doctrine:database:create --if-not-exists
+>$(DC) exec app php bin/console doctrine:migrations:migrate -n
