@@ -45,22 +45,25 @@ jobs:
               run: composer install --no-interaction --prefer-dist --no-progress
 
             # Optional: sicherstellen, dass das Test-Env geladen ist
-            - name: Clear test cache
-              run: php bin/console cache:clear --env=test --no-warmup
+            #- name: Clear test cache
+            #  run: php bin/console cache:clear --env=test --no-warmup
 
             - name: Warm up test DB (SQLite)
               run: |
-                rm -f var/test.db || true
-                APP_ENV=test php bin/console doctrine:schema:create -n
+                rm -f var/test.db
+                php bin/console cache:clear --env=test
+                php bin/console doctrine:database:create --env=test --if-not-exists
+                php bin/console doctrine:schema:create   --env=test
 
             - name: Run PHPUnit
+              run: vendor/bin/phpunit --colors=always
               env:
                   APP_ENV: test
                   APP_DEBUG: 1
                   XDEBUG_MODE: off
                   # Falls du .env.test NICHT committen willst, könntest du hier alternativ direkt setzen:
                   # DATABASE_URL: 'sqlite:///%kernel.project_dir%/var/test.db'
-              run: APP_ENV=test XDEBUG_MODE=off php bin/phpunit --display-deprecations
+              #run: APP_ENV=test XDEBUG_MODE=off php bin/phpunit --display-deprecations
 
             - name: Build test schema
               run: php bin/console doctrine:schema:create --env=test
