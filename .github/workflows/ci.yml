@@ -1,68 +1,37 @@
+# .github/workflows/ci.yml (auszugsweise, minimal & übersichtlich)
 name: CI
 
 on:
     push:
-        branches:
-            - 'feature/**'
-            - 'bugfix/**'
-            - main
-            - develop
-    pull_request: {}
+        branches: [ main, develop, 'feature/**', 'bugfix/**' ]
+    pull_request:
 
 jobs:
     phpunit:
-        name: PHPUnit (PHP 8.3, SQLite)
         runs-on: ubuntu-latest
 
         steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+            - uses: actions/checkout@v4
 
             - name: Setup PHP
               uses: shivammathur/setup-php@v2
               with:
                   php-version: '8.3'
-                  extensions: mbstring, intl, pdo_mysql, pdo_sqlite, zip
+                  extensions: pdo_sqlite
                   coverage: none
-                  tools: composer:v2
-
-            - name: Cache Composer
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cache/composer/files
-                  key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-                  restore-keys: ${{ runner.os }}-composer-
-
-            - name: Create .env for CI
-              run: |
-                cat > .env <<'EOF'
-                APP_ENV=test
-                APP_SECRET=dev-secret
-                DATABASE_URL=sqlite:///%kernel.project_dir%/var/test.db
-                EOF
+                  ini-values: xdebug.mode=off   # unterdrückt die xdebug-Warnung
 
             - name: Install dependencies
-              run: composer install --no-interaction --prefer-dist --no-progress
+              run: composer install --no-interaction --no-progress --prefer-dist
 
-            # Optional: sicherstellen, dass das Test-Env geladen ist
-            #- name: Clear test cache
-            #  run: php bin/console cache:clear --env=test --no-warmup
-
-            - name: Warm up test DB (SQLite)
+            - name: Prepare test env (SQLite)
               run: |
-                rm -f var/test.db
-                php bin/console doctrine:database:create --env=test --if-not-exists
-                php bin/console doctrine:schema:create   --env=test
+                  mkdir -p var
+                  rm -f var/test.db                # frische Test-DB-Datei
+                  php bin/console cache:clear --env=test
 
-            - name: Run PHPUnit
-              run: vendor/bin/phpunit --colors=always
+            - name: PHPUnit
               env:
                   APP_ENV: test
                   APP_DEBUG: 1
-                  XDEBUG_MODE: off
-                  # Falls du .env.test NICHT committen willst, könntest du hier alternativ direkt setzen:
-                  DATABASE_URL: 'sqlite:///%kernel.project_dir%/var/test.db'
-              #run: APP_ENV=test XDEBUG_MODE=off php bin/phpunit --display-deprecations
-
-            #- name: Build test schema
-            #  run: php bin/console doctrine:schema:create --env=test
+              run: vendor/bin/phpunit --colors=always
