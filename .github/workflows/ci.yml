@@ -51,7 +51,9 @@ jobs:
             - name: Warm up test DB (SQLite)
               run: |
                 rm -f var/test.db
-                php bin/console cache:clear --env=test
+              #  php bin/console cache:clear --env=test
+                php bin/console doctrine:database:create --env=test --if-not-exists
+                php bin/console doctrine:schema:create   --env=test
 
             - name: Run PHPUnit
               run: vendor/bin/phpunit --colors=always
@@ -60,7 +62,7 @@ jobs:
                   APP_DEBUG: 1
                   XDEBUG_MODE: off
                   # Falls du .env.test NICHT committen willst, könntest du hier alternativ direkt setzen:
-                  # DATABASE_URL: 'sqlite:///%kernel.project_dir%/var/test.db'
+                  DATABASE_URL: 'sqlite:///%kernel.project_dir%/var/test.db'
               #run: APP_ENV=test XDEBUG_MODE=off php bin/phpunit --display-deprecations
 
             #- name: Build test schema
