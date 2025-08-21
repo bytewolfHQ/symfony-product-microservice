@@ -22,9 +22,10 @@ jobs:
               uses: shivammathur/setup-php@v2
               with:
                   php-version: '8.3'
-                  extensions: mbstring, intl, pdo_mysql, pdo_sqlite, zip
+                  extensions: pdo_sqlite
                   coverage: none
                   tools: composer:v2
+                  ini-values: xdebug.mode=off
 
             - name: Cache Composer
               uses: actions/cache@v4
@@ -33,12 +34,26 @@ jobs:
                   key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
                   restore-keys: ${{ runner.os }}-composer-
 
+            - name: Create .env for CI
+              run: |
+                cat > .env <<'EOF'
+                APP_ENV=test
+                APP_SECRET=dev-secret
+                DATABASE_URL=sqlite:///%kernel.project_dir%/var/test.db
+                EOF
+
             - name: Install dependencies
               run: composer install --no-interaction --prefer-dist --no-progress
 
             # Optional: sicherstellen, dass das Test-Env geladen ist
-            - name: Clear test cache
-              run: php bin/console cache:clear --env=test --no-warmup
+            #- name: Clear test cache
+            #  run: php bin/console cache:clear --env=test --no-warmup
+
+            -   name: Prepare test env (SQLite)
+                run: |
+                  mkdir -p var
+                  rm -f var/test.db                # frische Test-DB-Datei
+                  php bin/console cache:clear --env=test
 
             - name: Run PHPUnit
               env:
@@ -47,4 +62,4 @@ jobs:
                   XDEBUG_MODE: off
                   # Falls du .env.test NICHT committen willst, könntest du hier alternativ direkt setzen:
                   # DATABASE_URL: 'sqlite:///%kernel.project_dir%/var/test.db'
-              run: php bin/phpunit --display-deprecations
+              run: vendor/bin/phpunit --colors=always

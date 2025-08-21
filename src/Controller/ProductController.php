@@ -21,43 +21,79 @@ final class ProductController extends AbstractController
     #[Route('', name: 'product_list', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
-        $onlyActive = !filter_var($request->query->get('all', 'false'), FILTER_VALIDATE_BOOLEAN);
-        $products = $this->productService->getAll($onlyActive);
+        $onlyActive   = true;
+        $defaultLimit = ProductService::DEFAULT_LIMIT;
+        $limitUsed    = null;
 
-        $data = array_map(fn (Product $product) => [
-            'id' => $product->getId(),
-            'name' => $product->getName(),
-            'description' => $product->getDescription(),
-            'price' => $product->getPrice(),
-            'category' => $product->getCategory(),
-            'createdAt' => $product->getCreatedAt()->format(DATE_ATOM),
-            'updatedAt' => $product->getUpdatedAt()->format(DATE_ATOM),
-            'isActive' => $product->isActive(),
-        ], $products);
-
-        if (!$data) {
-            return new JsonResponse([], 204);
+        $filters = [];
+        if (null !== $request->query->get('category')) {
+            $filters['category'] = $request->query->get('category');
+        }
+        if (null !== $request->query->get('minPrice')) {
+            $filters['minPrice'] = (float) $request->query->get('minPrice');
+        }
+        if (null !== $request->query->get('maxPrice')) {
+            $filters['maxPrice'] = (float) $request->query->get('maxPrice');
+        }
+        if (null !== $request->query->get('isActive')) {
+            $filters['isActive'] = filter_var($request->query->get('isActive'), FILTER_VALIDATE_BOOLEAN);
         }
 
-        return new JsonResponse(['data' => $data], 200);
+        $sort = ['field' => 'createdAt','direction' => 'DESC'];
+        if ($request->query->get('sort')) {
+            [$sort['field'], $sort['direction']] = explode(',', $request->query->get('sort'));
+        }
+
+        $hasFilters = !empty($filters);
+        $hasPagination = $request->query->get('page') && $request->query->get('limit');
+        $getAllProducts = $request->query->get('all');
+
+        if ($hasFilters) {
+            $products = $this->productService->getByCriteria(
+                $filters,
+                $sort,
+            );
+            $limitUsed = count($products);
+        } elseif ($hasPagination) {
+            $page = max(1, (int) $request->query->get('page', 1));
+            $limit = max(1, (int) $request->query->get('limit', $defaultLimit));
+            $products = $this->productService->getPaginated(true, $page, $limit);
+            $limitUsed = $limit;
+        } elseif ($getAllProducts) {
+            $onlyActive = false;
+            $products = $this->productService->getAll(false);
+            $limitUsed = $defaultLimit;
+        } else {
+            $products = $this->productService->getAll();
+            $limitUsed = $defaultLimit;
+        }
+
+        if (empty($products)) {
+            return new JsonResponse([], 204); // No Content
+        }
+
+        $data       = array_map([$this, 'map'], $products);
+        $totalCount = $this->productService->countAll($onlyActive, $filters ?? []);
+        $page       = (int) $request->query->get('page', 1);
+
+        return new JsonResponse([
+            'data' => $data,
+            'meta' => [
+                'total' => $totalCount,
+                'page' => $page,
+                'limit' => (int) ($limitUsed ?? $defaultLimit),
+            ],
+        ], 200, [
+            'Content-Type'  => 'application/json',
+            'X-Total-Count' => (string) $totalCount,
+        ]);
     }
 
     #[Route('/{id}', name: 'product_detail', methods: ['GET'])]
     public function detail(int $id): JsonResponse
     {
         $product = $this->productService->getById($id);
-        if (!$product) return new JsonResponse(['error' => 'Not found'], 404);
-
-        return new JsonResponse([
-            'id' => $product->getId(),
-            'name' => $product->getName(),
-            'description' => $product->getDescription(),
-            'price' => $product->getPrice(),
-            'category' => $product->getCategory(),
-            'createdAt' => $product->getCreatedAt()->format(DATE_ATOM),
-            'updatedAt' => $product->getUpdatedAt()->format(DATE_ATOM),
-            'isActive' => $product->isActive(),
-        ], 200);
+        return $product ? $this->json($this->map($product)) : $this->json(['error' => 'product not found'], 404);
     }
 
     #[Route('', name: 'product_create', methods: ['POST'])]
@@ -81,18 +117,7 @@ final class ProductController extends AbstractController
             return new JsonResponse(['errors' => (string)$errors], 422);
         }
 
-        $response = new JsonResponse([
-            'id' => $product->getId(),
-            'name' => $product->getName(),
-            'description' => $product->getDescription(),
-            'price' => $product->getPrice(),
-            'category' => $product->getCategory(),
-            'createdAt' => $product->getCreatedAt()->format(DATE_ATOM),
-            'updatedAt' => $product->getUpdatedAt()->format(DATE_ATOM),
-            'isActive' => $product->isActive(),
-        ], 201);
-        $response->headers->set('Location', '/api/products/' . $product->getId());
-        return $response;
+        return $this->json($this->map($product), 201);
     }
 
     #[Route('/{id}', name: 'product_update', methods: ['PUT'])]
@@ -115,16 +140,7 @@ final class ProductController extends AbstractController
 
         $this->productService->save($product);
 
-        return new JsonResponse([
-            'id' => $product->getId(),
-            'name' => $product->getName(),
-            'description' => $product->getDescription(),
-            'price' => $product->getPrice(),
-            'category' => $product->getCategory(),
-            'createdAt' => $product->getCreatedAt()->format(DATE_ATOM),
-            'updatedAt' => $product->getUpdatedAt()->format(DATE_ATOM),
-            'isActive' => $product->isActive(),
-        ], 201);
+        return $this->json($this->map($product), 201);
     }
 
     #[Route('/{id}', name: 'product_delete', methods: ['DELETE'])]
@@ -134,5 +150,16 @@ final class ProductController extends AbstractController
         if (!$product) return new JsonResponse(['error' => 'Not found'], 404);
         $this->productService->delete($product);
         return new JsonResponse(null, 204);
+    }
+
+    private function map(Product $product): array
+    {
+        return [
+            'id'=>$product->getId(),'name'=>$product->getName(),'description'=>$product->getDescription(),
+            'price'=>$product->getPrice(),'category'=>$product->getCategory(),
+            'createdAt'=>$product->getCreatedAt()->format(DATE_ATOM),
+            'updatedAt'=>$product->getUpdatedAt()->format(DATE_ATOM),
+            'isActive'=>$product->isActive(),
+        ];
     }
 }

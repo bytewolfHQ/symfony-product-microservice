@@ -154,7 +154,9 @@ sf:
 >$(DC) exec app php bin/console $(ARGS)
 
 phpunit:
->$(DC) exec app bash -lc 'APP_ENV=test APP_DEBUG=1 php bin/console cache:clear --no-warmup'
+>$(DC) exec app bash -lc 'APP_ENV=test APP_DEBUG=1 php bin/console cache:clear --no-warmup || true'
+>$(DC) exec app bash -lc 'rm -f var/test.db || true'
+>$(DC) exec app bash -lc 'APP_ENV=test php bin/console doctrine:schema:create -n'
 >$(DC) exec app bash -lc 'APP_ENV=test APP_DEBUG=1 XDEBUG_MODE=off php bin/phpunit $(ARGS) --display-deprecations'
 
 seed:
@@ -167,3 +169,22 @@ seed-reset:
 >$(DC) exec app php -d xdebug.mode=off bin/console doctrine:database:create --if-not-exists
 >$(DC) exec app php -d xdebug.mode=off bin/console doctrine:migrations:migrate -n
 >$(MAKE) seed PURGE=1 $(if $(GROUP),GROUP=$(GROUP),)
+
+# Schnellcheck: zeigt DB-URL & Migrations-Status
+doctor:
+>$(DC) exec app php -r 'echo "APP_ENV=", getenv("APP_ENV"), PHP_EOL, "DATABASE_URL=", getenv("DATABASE_URL"), PHP_EOL;'
+>$(DC) exec app php bin/console doctrine:migrations:status -vvv || true
+
+# Frisches Dev: alles neu aufsetzen (Daten gehen verloren!)
+reset-dev: down
+>$(MAKE) build ENV=$(ENV)
+>$(MAKE) up ENV=$(ENV)
+>$(MAKE) composer-install ENV=$(ENV)
+>$(MAKE) migrate ENV=$(ENV)
+>$(MAKE) seed ENV=$(ENV)
+
+# Nur DB frisch (drop/create + migrate)
+db-fresh:
+>$(DC) exec app php bin/console doctrine:database:drop --force || true
+>$(DC) exec app php bin/console doctrine:database:create --if-not-exists
+>$(DC) exec app php bin/console doctrine:migrations:migrate -n
