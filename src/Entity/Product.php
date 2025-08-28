@@ -5,8 +5,25 @@ namespace App\Entity;
 use App\Repository\ProductRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use OpenApi\Attributes as OA;
 
+#[OA\Schema(
+    schema: 'Product',
+    required: ['id','name','price','category','isActive','createdAt','updatedAt'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64'),
+        new OA\Property(property: 'name', type: 'string'),
+        new OA\Property(property: 'description', type: 'string'),
+        new OA\Property(property: 'price', type: 'number', format: 'float'),
+        new OA\Property(property: 'category', type: 'string'),
+        new OA\Property(property: 'isActive', type: 'boolean'),
+        new OA\Property(property: 'createdAt', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'updatedAt', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Product
 {
     #[ORM\Id]
@@ -39,7 +56,7 @@ class Product
     public function onCreate(): void
     {
         $now = new \DateTimeImmutable();
-        $this->createdAt = $now;
+        $this->createdAt ??= $now;
         $this->updatedAt = $now;
         $this->isActive ??= true;
     }

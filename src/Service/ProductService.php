@@ -37,25 +37,27 @@ class ProductService
         return $this->productRepository->countAll($onlyActive, $filters);
     }
 
-    public function getById(int $id): ?Product
+    public function get(int $id): ?Product
     {
         return $this->productRepository->find($id);
     }
 
-    public function create(string $name, string $description, float $price, string $category, bool $isActive): Product
+    /** @param array{name:string,description:string,price:float,category:string,isActive?:bool} $data */
+    public function create(array $data): Product
     {
-        $product = (new Product())
-            ->setName($name)
-            ->setDescription($description)
-            ->setPrice($price)
-            ->setCategory($category)
-            ->setCreatedAt(new DateTimeImmutable())
-            ->setUpdatedAt(new DateTimeImmutable())
-            ->setIsActive($isActive);
+        $product = new Product();
+        $this->hydrate($product, $data, partial: false);
 
         $this->em->persist($product);
         $this->em->flush();
+        return $product;
+    }
 
+    /** @param array<string,mixed> $data */
+    public function update(Product $product, array $data, bool $partial = false): Product
+    {
+        $this->hydrate($product, $data, $partial);
+        $this->em->flush();
         return $product;
     }
 
@@ -69,5 +71,15 @@ class ProductService
     {
         $this->em->remove($product);
         $this->em->flush();
+    }
+
+    private function hydrate(Product $product, array $data, bool $partial): void
+    {
+        if (!$partial || array_key_exists('data', $data))        { $product->setName((string)$data['name']); }
+        if (!$partial || array_key_exists('description', $data)) { $product->setDescription((string)$data['description']); }
+        if (!$partial || array_key_exists('price', $data))       { $product->setPrice((float)$data['price']); }
+        if (!$partial || array_key_exists('category', $data))    { $product->setCategory((string)$data['category']); }
+        if (!$partial || array_key_exists('isActive', $data))    { $product->setIsActive((bool)($data['isActive'] ?? true)); }
+        $product->onUpdate();
     }
 }
