@@ -1,0 +1,12 @@
+nelmio_api_doc:
+    documentation:
+        info:
+            title: Product API
+            description: Product microservice with JWT security
+            version: 1.0.0
+        tags:
+            -   name: Products
+                description: Product endpoints
+    areas:
+        default:
+            path_patterns: ['^/api(?!/doc(?:\.json)?$)']

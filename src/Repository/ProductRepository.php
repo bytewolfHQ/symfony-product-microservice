@@ -19,27 +19,59 @@ class ProductRepository extends ServiceEntityRepository
 
     public function getPaginated(bool $onlyActive, int $page, int $limit): array
     {
-        $query = $this->createQueryBuilder('p');
+        $qb = $this->createQueryBuilder('p');
+
         if ($onlyActive) {
-            $query->andWhere('p.isActive = :active')
+            $qb->andWhere('p.isActive = :active')
                 ->setParameter('active', true);
         }
-        return $query->orderBy('p.createdAt', 'DESC')
-            ->setFirstResult(max(0,$page - 1) * $limit)
+
+        return $qb
+            ->orderBy('p.createdAt', 'DESC')
+            ->setFirstResult(max(0, $page - 1) * $limit)
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
     }
 
-    public function findByCriteria(array $filters, array $sort = ['field'=>'createdAt', 'direction'=>'DESC']): array
+    /**
+     * @param array{
+     *   category?: string,
+     *   minPrice?: float|int,
+     *   maxPrice?: float|int,
+     *   isActive?: bool|int|string
+     * } $filters
+     * @param array{field?: string, direction?: 'ASC'|'DESC'} $sort
+     */
+    public function findByCriteria(array $filters = [], array $sort = []): array
     {
-        $query = $this->createQueryBuilder('p');
-        if (isset($filters['isActive'])) {
-            $query->andWhere('p.isActive = :active')
+        $qb = $this->createQueryBuilder('p');
+
+        if (array_key_exists('isActive', $filters)) {
+            $qb->andWhere('p.isActive = :active')
                 ->setParameter('active', (bool) $filters['isActive']);
         }
-        $this->applyFilters($query, $filters);
-        return $query->orderBy('p.' . $sort['field'], $sort['direction'])
+
+        if (!empty($filters['category'])) {
+            $qb->andWhere('p.category = :category')
+                ->setParameter('category', $filters['category']);
+        }
+
+        if (isset($filters['minPrice'])) {
+            $qb->andWhere('p.price >= :minPrice')
+                ->setParameter('minPrice', (float) $filters['minPrice']);
+        }
+
+        if (isset($filters['maxPrice'])) {
+            $qb->andWhere('p.price <= :maxPrice')
+                ->setParameter('maxPrice', (float) $filters['maxPrice']);
+        }
+
+        $allowed = ['createdAt', 'updatedAt', 'price', 'name', 'category'];
+        $field   = in_array($sort['field'] ?? '', $allowed, true) ? ('p.' . $sort['field']) : 'p.createdAt';
+        $dir     = strtoupper($sort['direction'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
+
+        return $qb->orderBy($field, $dir)
             ->getQuery()
             ->getResult();
     }
@@ -58,8 +90,8 @@ class ProductRepository extends ServiceEntityRepository
     private function applyFilters(QueryBuilder $query, array $filters): void
     {
         if (isset($filters['category'])) $query->andWhere('p.category = :c')->setParameter('c', $filters['category']);
-        if (isset($filters['minPrice'])) $query->andWhere('p.price => :min')->setParameter('min', $filters['minPrice']);
-        if (isset($filters['maxPrice'])) $query->andWhere('p.price <= :max')->setParameter('max', $filters['minPrice']);
+        if (isset($filters['minPrice'])) $query->andWhere('p.price >= :min')->setParameter('min', $filters['minPrice']);
+        if (isset($filters['maxPrice'])) $query->andWhere('p.price <= :max')->setParameter('max', $filters['maxPrice']);
         if (isset($filters['isActive'])) $query->andWhere('p.isActive > :a')->setParameter('a', (bool)$filters['isActive']);
     }
 }
